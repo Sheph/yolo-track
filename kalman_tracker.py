@@ -35,6 +35,7 @@ class KalmanBoxTracker(object):
     self.hits = 0
     self.hit_streak = 0
     self.age = 0
+    self.lost = False
 
   def update(self,bbox,img=None):
     """

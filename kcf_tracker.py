@@ -4,12 +4,14 @@
 
 import cv2
 import numpy as np
+from kalman_tracker import KalmanBoxTracker
 
 '''Appearance Model'''
 class KCFTracker:
 
   count = 0
   def __init__(self,bbox,img):
+    self.kalman_tracker = KalmanBoxTracker(bbox)
     self.tracker = cv2.TrackerKCF_create()
     self.last_pos = (int(bbox[0]),int(bbox[1]),int(bbox[2] - bbox[0]),int(bbox[3] - bbox[1]))
     self.tracker.init(img, self.last_pos)
@@ -26,12 +28,17 @@ class KCFTracker:
 
   def predict(self,img):
     ok, bbox = self.tracker.update(img)
+    kbbox = self.kalman_tracker.predict(img)
     if ok:
         self.lost = False
         self.last_pos = (int(bbox[0]),int(bbox[1]),int(bbox[2]),int(bbox[3]))
+        self.kalman_tracker.update((int(bbox[0]),int(bbox[1]),int(bbox[2] + bbox[0]),int(bbox[3] + bbox[1])), img)
     else:
-        self.lost = True
-        #self.last_pos = None
+        self.lost = False
+        self.last_pos = (int(kbbox[0]),int(kbbox[1]),int(kbbox[2] - kbbox[0]),int(kbbox[3] - kbbox[1]))
+        self.tracker = cv2.TrackerKCF_create()
+        self.tracker.init(img, self.last_pos)
+        self.tracker.update(img)
 
     self.age += 1
     if (self.time_since_update > 0):
@@ -41,6 +48,7 @@ class KCFTracker:
     return self.get_state()
 
   def update(self,bbox,img):
+    self.kalman_tracker.update(bbox, img)
     if bbox != []:
      self.time_since_update = 0
      self.hits += 1

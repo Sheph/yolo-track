@@ -76,6 +76,7 @@ class Sort:
         else:
           #trk = CorrelationTracker(dets[i,:],img)
           trk = KCFTracker(dets[i,:],img)
+          #trk = KalmanBoxTracker(dets[i,:])
         self.trackers.append(trk)
 
     i = len(self.trackers)
