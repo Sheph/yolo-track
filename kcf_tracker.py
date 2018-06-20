@@ -34,7 +34,7 @@ class KCFTracker:
     if ok:
         self.lost = False
         self.last_pos = (int(bbox[0]),int(bbox[1]),int(bbox[2]),int(bbox[3]))
-        self.last_pos = model.rect_inflate2(self.last_pos, self.last_pos[2] / 4, self.last_pos[3] / 4)
+        self.last_pos = model.rect_inflate2(self.last_pos, self.last_pos[2] / 2, self.last_pos[3] / 2)
         #self.kalman_tracker.update((int(bbox[0]),int(bbox[1]),int(bbox[2] + bbox[0]),int(bbox[3] + bbox[1])), img)
     else:
         self.lost = True

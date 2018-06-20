@@ -32,7 +32,7 @@ def iou(bb_test,bb_gt):
 
 
 
-def associate_detections_to_trackers(detections,trackers,iou_threshold = 0.1):
+def associate_detections_to_trackers(detections,trackers,iou_threshold = 0.05):
   """
   Assigns detections to tracked object (both represented as bounding boxes)
 

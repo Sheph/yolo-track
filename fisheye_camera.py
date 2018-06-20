@@ -32,7 +32,7 @@ class VideoCamera(object):
 		self.proj_long  = 70 # 0:90
 		self.view_angle = 45 # 0:90, 0 - top down view
 
-		self.calibrated = False
+		self.calibrated = True
 		self.angles = [0,0,0]
 		self.transl = [0,0]
 		self.scale = 1.0

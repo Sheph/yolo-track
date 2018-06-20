@@ -65,10 +65,16 @@ def merge_rects(ra, orig_frame):
             x4 = mapx[ymax, xmin]
             y4 = mapy[ymax, xmin]
 
+            if (x1 < 0) or (y1 < 0) or (x2 < 0) or (y2 < 0) or (x3 < 0) or (y3 < 0) or (x4 < 0) or (y4 < 0):
+                continue
+
             tx1 = int(np.min(np.array([x1, x2, x3, x4])))
             ty1 = int(np.min(np.array([y1, y2, y3, y4])))
             tx2 = int(np.max(np.array([x1, x2, x3, x4])))
             ty2 = int(np.max(np.array([y1, y2, y3, y4])))
+
+            if ((tx2 - tx1) / fix_w > 0.5) or ((ty2 - ty1) / fix_h > 0.5):
+                continue
 
             cv2.rectangle(orig_frame, (tx1,ty1), (tx2,ty2), (255,0,0), 3)
 
@@ -147,6 +153,7 @@ def test_frame(frame):
     trackers = tracker.update(np.array(detections) if detections else [], frame)
 
     for r in last_rects:
+        #continue
         xmin  = int((r[0] - r[2]/2) * fix_w) - off_x
         xmax  = int((r[0] + r[2]/2) * fix_w) - off_x
         ymin  = int((r[1] - r[3]/2) * fix_h) - off_y
@@ -232,4 +239,4 @@ if __name__ == "__main__":
 
     tracker = Sort(use_dlib=True)
 
-    test_vid("1.avi")
+    test_vid("8.avi")
