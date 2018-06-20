@@ -18,6 +18,8 @@ last_rects = []
 
 vc = VideoCamera(608, 608)
 
+out_wr = None
+
 def merge_rects(ra, orig_frame):
     ii = 0
     final_rects = []
@@ -87,6 +89,7 @@ def test_frame(frame):
     global dummy_array
     global f_idx
     global last_rects
+    global out_wr
 
     keep_aspect = False
 
@@ -176,6 +179,10 @@ def test_frame(frame):
                     (0,255,0), 2)
 
     cv2.imshow('frame', frame)
+    if out_wr == None:
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        out_wr = cv2.VideoWriter('output.avi', fourcc, 25.0, (frame.shape[1], frame.shape[0]))
+    out_wr.write(frame)
     k = cv2.waitKey(1) & 0xff
     if k == 32:
         k = cv2.waitKey() & 0xff

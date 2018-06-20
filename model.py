@@ -32,11 +32,34 @@ def rect_intersection(a, b):
     if w<0 or h<0: return ()
     return (x, y, w, h)
 
+def rect_union(a, b):
+    x = min(a[0], b[0])
+    y = min(a[1], b[1])
+    w = max(a[0]+a[2], b[0]+b[2]) - x
+    h = max(a[1]+a[3], b[1]+b[3]) - y
+    return (x, y, w, h)
+
 def rect_inflate(a, dist):
     return (a[0] - dist, a[1] - dist, a[2] + dist * 2, a[3] + dist * 2)
 
 def rect_inflate2(a, dist1, dist2):
     return (a[0] - dist1, a[1] - dist2, a[2] + dist1 * 2, a[3] + dist2 * 2)
+
+def rect_4patch(a, i):
+    off_x = a[2] / 4
+    off_y = a[3] / 4
+    a = (a[0], a[1], a[2] - off_x, a[3] - off_y)
+    if i == 0:
+        return a
+    elif i == 1:
+        return (a[0] + off_x, a[1], a[2], a[3])
+    elif i == 2:
+        return (a[0], a[1] + off_y, a[2], a[3])
+    elif i == 3:
+        return (a[0] + off_x, a[1] + off_y, a[2], a[3])
+
+def pt_dist(a, b):
+    return np.sqrt((a[0] - b[0])**2 + (a[1] - b[1])**2)
 
 def aspect_fit(where, what):
     aspect = float(what[0]) / what[1]
