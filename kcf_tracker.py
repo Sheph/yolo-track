@@ -4,6 +4,7 @@
 
 import cv2
 import numpy as np
+import model
 from kalman_tracker import KalmanBoxTracker
 
 '''Appearance Model'''
@@ -11,10 +12,11 @@ class KCFTracker:
 
   count = 0
   def __init__(self,bbox,img):
-    self.kalman_tracker = KalmanBoxTracker(bbox)
+    #self.kalman_tracker = KalmanBoxTracker(bbox)
     self.tracker = cv2.TrackerKCF_create()
     self.last_pos = (int(bbox[0]),int(bbox[1]),int(bbox[2] - bbox[0]),int(bbox[3] - bbox[1]))
-    self.tracker.init(img, self.last_pos)
+    r = model.rect_inflate2(self.last_pos, -self.last_pos[2] / 4, -self.last_pos[3] / 4);
+    self.tracker.init(img, r)
     self.tracker.update(img)
     self.confidence = 0. # measures how confident the tracker is! (a.k.a. correlation score)
 
@@ -28,17 +30,18 @@ class KCFTracker:
 
   def predict(self,img):
     ok, bbox = self.tracker.update(img)
-    kbbox = self.kalman_tracker.predict(img)
+    #kbbox = self.kalman_tracker.predict(img)
     if ok:
         self.lost = False
         self.last_pos = (int(bbox[0]),int(bbox[1]),int(bbox[2]),int(bbox[3]))
-        self.kalman_tracker.update((int(bbox[0]),int(bbox[1]),int(bbox[2] + bbox[0]),int(bbox[3] + bbox[1])), img)
+        self.last_pos = model.rect_inflate2(self.last_pos, self.last_pos[2] / 4, self.last_pos[3] / 4)
+        #self.kalman_tracker.update((int(bbox[0]),int(bbox[1]),int(bbox[2] + bbox[0]),int(bbox[3] + bbox[1])), img)
     else:
-        self.lost = False
-        self.last_pos = (int(kbbox[0]),int(kbbox[1]),int(kbbox[2] - kbbox[0]),int(kbbox[3] - kbbox[1]))
-        self.tracker = cv2.TrackerKCF_create()
-        self.tracker.init(img, self.last_pos)
-        self.tracker.update(img)
+        self.lost = True
+        #self.last_pos = (int(kbbox[0]),int(kbbox[1]),int(kbbox[2] - kbbox[0]),int(kbbox[3] - kbbox[1]))
+        #self.tracker = cv2.TrackerKCF_create()
+        #self.tracker.init(img, self.last_pos)
+        #self.tracker.update(img)
 
     self.age += 1
     if (self.time_since_update > 0):
@@ -48,7 +51,7 @@ class KCFTracker:
     return self.get_state()
 
   def update(self,bbox,img):
-    self.kalman_tracker.update(bbox, img)
+    #self.kalman_tracker.update(bbox, img)
     if bbox != []:
      self.time_since_update = 0
      self.hits += 1
@@ -58,7 +61,8 @@ class KCFTracker:
     if bbox != []:
       self.tracker = cv2.TrackerKCF_create()
       self.last_pos = (int(bbox[0]),int(bbox[1]),int(bbox[2] - bbox[0]),int(bbox[3] - bbox[1]))
-      self.tracker.init(img, self.last_pos)
+      r = model.rect_inflate2(self.last_pos, -self.last_pos[2] / 4, -self.last_pos[3] / 4);
+      self.tracker.init(img, r)
       self.tracker.update(img)
     '''
     Note: another approach is to re-start the tracker only when the correlation score fall below some threshold
@@ -68,6 +72,7 @@ class KCFTracker:
 
   def get_state(self):
     if self.last_pos:
-      return [self.last_pos[0], self.last_pos[1], self.last_pos[0] + self.last_pos[2], self.last_pos[1] + self.last_pos[3]]
+      r = self.last_pos
+      return [r[0], r[1], r[0] + r[2], r[1] + r[3]]
     else:
       return None

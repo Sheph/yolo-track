@@ -102,6 +102,10 @@ def test_frame(frame):
         fs[1] = vc.get_frame(frame_r, 1)
         fs[2] = vc.get_frame(frame_r, 2)
         fs[3] = vc.get_frame(frame_r, 3)
+        #cv2.imshow('f1', fs[0][0])
+        #cv2.imshow('f2', fs[1][0])
+        #cv2.imshow('f3', fs[2][0])
+        #cv2.imshow('f4', fs[3][0])
 
         ra = []
         for f in fs:
@@ -109,7 +113,7 @@ def test_frame(frame):
             frame_r = frame_r / 255.0
             frame_r = np.expand_dims(frame_r, 0)
             netout = net.predict([frame_r, dummy_array])[0]
-            ra.append((model.decode_netout(netout, 0.4, 0.3), f[0], f[1], f[2]))
+            ra.append((model.decode_netout(netout, 0.5, 0.3), f[0], f[1], f[2]))
 
         rects = merge_rects(ra, ff)
         f_idx = 0
