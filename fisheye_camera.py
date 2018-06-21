@@ -26,7 +26,7 @@ def fill_mapping(img, mapx, mapy, color_ind=2):
 
 class VideoCamera(object):
 	def __init__(self, w, h):
-		self.size_out = (608, 608)
+		self.size_out = (w, h)
 
 		self.proj_wide  = 90 # 0:360
 		self.proj_long  = 70 # 0:90

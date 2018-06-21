@@ -12,15 +12,16 @@ from datetime import datetime
 import tensorflow as tf
 from sort import Sort
 from fisheye_camera import VideoCamera
+from keras.models import load_model
 
 f_idx = 0
 last_rects = []
 
-vc = VideoCamera(608, 608)
+vc = VideoCamera(416, 416)
 
 out_wr = None
 
-is_fisheye = True
+is_fisheye = False
 
 def get_random_color(pastel_factor = 0.5):
     return [(x+pastel_factor)/(1.0+pastel_factor) for x in [random.uniform(0,1.0) for i in [1,2,3]]]
@@ -40,6 +41,30 @@ def generate_new_color(existing_colors,pastel_factor = 0.5):
             max_distance = best_distance
             best_color = color
     return best_color
+
+def preprocess_input(image, net_h, net_w):
+    new_h, new_w, _ = image.shape
+
+    # determine the new size of the image
+    if (float(net_w) / new_w) < (float(net_h) / new_h):
+        new_h = (new_h * net_w) // new_w
+        new_w = net_w
+    else:
+        new_w = (new_w * net_h) // new_h
+        new_h = net_h
+
+    new_w = net_w
+    new_h = net_h
+
+    # resize the image to the new size
+    resized = cv2.resize(image[:, :, ::-1] / 255., (new_w, new_h), cv2.INTER_LANCZOS4)
+
+    # embed the image into the standard letter box
+    new_image = np.ones((net_h, net_w, 3)) * 0.5
+    new_image[(net_h - new_h) // 2:(net_h + new_h) // 2, (net_w - new_w) // 2:(net_w + new_w) // 2, :] = resized
+    new_image = np.expand_dims(new_image, 0)
+
+    return new_image
 
 def merge_rects(ra, orig_frame):
     ii = 0
@@ -142,23 +167,21 @@ def test_frame(frame):
 
             ra = []
             for f in fs:
-                frame_r = f[0]
-                frame_r = frame_r / 255.0
-                frame_r = np.expand_dims(frame_r, 0)
-                netout = net.predict([frame_r, dummy_array])[0]
-                ra.append((model.decode_netout(netout, 0.5, 0.3), f[0], f[1], f[2]))
+                #frame_r = f[0]
+                #frame_r = frame_r / 255.0
+                #frame_r = np.expand_dims(frame_r, 0)
+                netout = net.predict(preprocess_input(f[0], model.IMAGE_H, model.IMAGE_W))
+                ra.append((model.decode_netout(netout, 0.8, 0.4), f[0], f[1], f[2]))
 
             rects = merge_rects(ra, ff)
             last_rects = rects
         else:
-            frame_r = frame_r / 255.0
-            frame_r = np.expand_dims(frame_r, 0)
-            netout = net.predict([frame_r, dummy_array])[0]
-            rects = last_rects = model.decode_netout(netout, 0.5, 0.3)
+            netout = net.predict(preprocess_input(frame, model.IMAGE_H, model.IMAGE_W))
+            rects = last_rects = model.decode_netout(netout, 0.8, 0.4)
     else:
         rects = []
 
-    frame = cv2.resize(frame, (int(388 * aspect), 388), interpolation = cv2.INTER_AREA)
+    frame = cv2.resize(frame, (int(240 * aspect), 240), interpolation = cv2.INTER_AREA)
 
     off_x = 0
     off_y = 0
@@ -243,45 +266,9 @@ if __name__ == "__main__":
         c = generate_new_color(color_table, pastel_factor = 0.5)
         color_table.append((int(c[0] * 255), int(c[1] * 255), int(c[2] * 255)))
 
-    net = model.yolo()
-
-    weight_reader = model.WeightReader("yolov2.weights")
-
-    weight_reader.reset()
-    nb_conv = 23
-
-    for i in range(1, nb_conv+1):
-        conv_layer = net.get_layer('conv_' + str(i))
-
-        if i < nb_conv:
-            norm_layer = net.get_layer('norm_' + str(i))
-
-            size = np.prod(norm_layer.get_weights()[0].shape)
-
-            beta = weight_reader.read_bytes(size)
-            gamma = weight_reader.read_bytes(size)
-            mean = weight_reader.read_bytes(size)
-            var = weight_reader.read_bytes(size)
-
-            weights = norm_layer.set_weights([gamma, beta, mean, var])
-
-        if len(conv_layer.get_weights()) > 1:
-            bias = weight_reader.read_bytes(np.prod(conv_layer.get_weights()[1].shape))
-            kernel = weight_reader.read_bytes(np.prod(conv_layer.get_weights()[0].shape))
-            kernel = kernel.reshape(list(reversed(conv_layer.get_weights()[0].shape)))
-            kernel = kernel.transpose([2,3,1,0])
-            conv_layer.set_weights([kernel, bias])
-
-        else:
-            kernel = weight_reader.read_bytes(np.prod(conv_layer.get_weights()[0].shape))
-            kernel = kernel.reshape(list(reversed(conv_layer.get_weights()[0].shape)))
-            kernel = kernel.transpose([2,3,1,0])
-            conv_layer.set_weights([kernel])
-        conv_layer.trainable = False
-        norm_layer.trainable = False
-
+    net = load_model('yolo3_model.h5')
     dummy_array = np.zeros((1,1,1,1,model.TRUE_BOX_BUFFER,4))
 
     tracker = Sort(use_dlib=True)
 
-    test_vid("8.avi")
+    test_vid("2.avi")
