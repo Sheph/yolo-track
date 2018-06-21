@@ -37,6 +37,7 @@ class KCFTracker:
     self.hit_streak = 0
     self.age = 0
     self.lost = False
+    self.points = []
 
   def predict(self,img):
     ok, bbox = self.tracker.update(img)
@@ -87,6 +88,9 @@ class KCFTracker:
         factor = (rct[2] * rct[3]) / (rct_good[2] * rct_good[3])
         if (factor <= 1.25):
             self.last_pos = rct_good
+            self.points.append((cx, cy))
+            if len(self.points) > 100:
+                del self.points[0]
             self.lost = False
             if i != 0:
                 for k in range(4):

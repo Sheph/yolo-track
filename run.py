@@ -20,6 +20,27 @@ vc = VideoCamera(608, 608)
 
 out_wr = None
 
+is_fisheye = True
+
+def get_random_color(pastel_factor = 0.5):
+    return [(x+pastel_factor)/(1.0+pastel_factor) for x in [random.uniform(0,1.0) for i in [1,2,3]]]
+
+def color_distance(c1, c2):
+    return sum([abs(x[0]-x[1]) for x in zip(c1,c2)])
+
+def generate_new_color(existing_colors,pastel_factor = 0.5):
+    max_distance = None
+    best_color = None
+    for i in range(0,100):
+        color = get_random_color(pastel_factor = pastel_factor)
+        if not existing_colors:
+            return color
+        best_distance = min([color_distance(color,c) for c in existing_colors])
+        if not max_distance or best_distance > max_distance:
+            max_distance = best_distance
+            best_color = color
+    return best_color
+
 def merge_rects(ra, orig_frame):
     ii = 0
     final_rects = []
@@ -90,6 +111,7 @@ def test_frame(frame):
     global f_idx
     global last_rects
     global out_wr
+    global color_table
 
     keep_aspect = False
 
@@ -105,32 +127,38 @@ def test_frame(frame):
     f_idx += 1
 
     if f_idx > 17:
-        ff = frame_r
-        fs = [0, 0, 0, 0]
-        fs[0] = vc.get_frame(frame_r, 0)
-        fs[1] = vc.get_frame(frame_r, 1)
-        fs[2] = vc.get_frame(frame_r, 2)
-        fs[3] = vc.get_frame(frame_r, 3)
-        #cv2.imshow('f1', fs[0][0])
-        #cv2.imshow('f2', fs[1][0])
-        #cv2.imshow('f3', fs[2][0])
-        #cv2.imshow('f4', fs[3][0])
+        f_idx = 0
+        if is_fisheye:
+            ff = frame_r
+            fs = [0, 0, 0, 0]
+            fs[0] = vc.get_frame(frame_r, 0)
+            fs[1] = vc.get_frame(frame_r, 1)
+            fs[2] = vc.get_frame(frame_r, 2)
+            fs[3] = vc.get_frame(frame_r, 3)
+            #cv2.imshow('f1', fs[0][0])
+            #cv2.imshow('f2', fs[1][0])
+            #cv2.imshow('f3', fs[2][0])
+            #cv2.imshow('f4', fs[3][0])
 
-        ra = []
-        for f in fs:
-            frame_r = f[0]
+            ra = []
+            for f in fs:
+                frame_r = f[0]
+                frame_r = frame_r / 255.0
+                frame_r = np.expand_dims(frame_r, 0)
+                netout = net.predict([frame_r, dummy_array])[0]
+                ra.append((model.decode_netout(netout, 0.5, 0.3), f[0], f[1], f[2]))
+
+            rects = merge_rects(ra, ff)
+            last_rects = rects
+        else:
             frame_r = frame_r / 255.0
             frame_r = np.expand_dims(frame_r, 0)
             netout = net.predict([frame_r, dummy_array])[0]
-            ra.append((model.decode_netout(netout, 0.5, 0.3), f[0], f[1], f[2]))
-
-        rects = merge_rects(ra, ff)
-        f_idx = 0
-        last_rects = rects
+            rects = last_rects = model.decode_netout(netout, 0.5, 0.3)
     else:
         rects = []
 
-    frame = cv2.resize(frame, (int(480 * aspect), 480), interpolation = cv2.INTER_AREA)
+    frame = cv2.resize(frame, (int(388 * aspect), 388), interpolation = cv2.INTER_AREA)
 
     off_x = 0
     off_y = 0
@@ -156,7 +184,6 @@ def test_frame(frame):
     trackers = tracker.update(np.array(detections) if detections else [], frame)
 
     for r in last_rects:
-        #continue
         xmin  = int((r[0] - r[2]/2) * fix_w) - off_x
         xmax  = int((r[0] + r[2]/2) * fix_w) - off_x
         ymin  = int((r[1] - r[3]/2) * fix_h) - off_y
@@ -170,6 +197,10 @@ def test_frame(frame):
                     (255,0,0), 2)
 
     for d in trackers:
+        pts = np.array(d[5])
+        cv2.polylines(frame, np.int32([pts]), 0, color_table[d[4] % len(color_table)], 2)
+        for pt in d[5]:
+            cv2.circle(frame, (int(pt[0]), int(pt[1])), 1, (255, 255, 0), 1)
         cv2.rectangle(frame, (int(d[0]),int(d[1])), (int(d[2]),int(d[3])), (0,255,0), 3)
         cv2.putText(frame,
                     str(int(d[4])),
@@ -204,6 +235,13 @@ if __name__ == "__main__":
     global net
     global dummy_array
     global dummy_mask
+    global color_table
+
+    color_table = []
+
+    for i in range(0, 10):
+        c = generate_new_color(color_table, pastel_factor = 0.5)
+        color_table.append((int(c[0] * 255), int(c[1] * 255), int(c[2] * 255)))
 
     net = model.yolo()
 

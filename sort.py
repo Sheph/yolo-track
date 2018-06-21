@@ -85,7 +85,7 @@ class Sort:
           trk.update([],img)
         d = trk.get_state()
         #if((trk.time_since_update < 1) and (trk.hit_streak >= self.min_hits or self.frame_count <= self.min_hits)):
-        ret.append(np.concatenate((d,[trk.id+1])).reshape(1,-1)) # +1 as MOT benchmark requires positive
+        ret.append(list(d) + [trk.id+1, trk.points]) # +1 as MOT benchmark requires positive
         i -= 1
         #remove dead tracklet
         if trk.lost:
@@ -95,5 +95,5 @@ class Sort:
         if(trk.time_since_update > ma):
           self.trackers.pop(i)
     if(len(ret)>0):
-      return np.concatenate(ret)
-    return np.empty((0,5))
+      return ret
+    return []
