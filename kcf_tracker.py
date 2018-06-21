@@ -69,7 +69,7 @@ class KCFTracker:
 
     aaa = False
 
-    for i in range(2):
+    for i in range(4):
         cx = 0.0
         cy = 0.0
         rct = None
@@ -97,17 +97,18 @@ class KCFTracker:
                     self.trackers[k] = cv2.TrackerKCF_create()
                     r = model.rect_4patch(rct_good, k)
                     self.trackers[k].init(img, r)
+                    self.trackers[k].update(img)
                     self.lp[k] = (r[0] + r[2] / 2, r[1] + r[3] / 2)
                     self.tot_dist[k] = 0.0
                     self.bboxes[k] = r
                 cv2.rectangle(frame, (int(rct_good[0]),int(rct_good[1])), (int(rct_good[0] + rct_good[2]),int(rct_good[1] + rct_good[3])), (0,0,255), 2)
                 aaa = False
             break
-        if i == 1:
-            break
+        #if i == 1:
+        #    break
         del idx[0]
-        del idx[0]
-        del idx[0]
+        #del idx[0]
+        #del idx[0]
 
     cv2.imshow('frame2', frame)
     if aaa:
@@ -138,6 +139,7 @@ class KCFTracker:
         self.trackers[i] = cv2.TrackerKCF_create()
         r = model.rect_4patch(self.last_pos, i)
         self.trackers[i].init(img, r)
+        self.trackers[i].update(img)
         self.lp[i] = (r[0] + r[2] / 2, r[1] + r[3] / 2)
         self.tot_dist[i] = 0.0
         self.bboxes[i] = r
