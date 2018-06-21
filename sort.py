@@ -13,7 +13,7 @@ import model
 
 class Sort:
 
-  def __init__(self,max_age=25*2,min_hits=3, use_dlib = False):
+  def __init__(self,max_age=25*3/2,min_hits=3, use_dlib = False):
     """
     Sets key parameters for SORT
     """
@@ -37,7 +37,6 @@ class Sort:
     #get predicted locations from existing trackers.
     trks = np.zeros((len(self.trackers),5))
     to_del = []
-    ret = []
     for t,trk in enumerate(trks):
       pos = self.trackers[t].predict(img) #for kal!
       trk[:] = [pos[0], pos[1], pos[2], pos[3], 0]
@@ -69,13 +68,27 @@ class Sort:
                 if area_factor > 0.5:
                     tr.time_since_update = 0
                     skip = True
+                    break
         if skip:
             continue
+        new_id = None
+        for tr in self.trackers:
+            r2 = dets[i,:]
+            r2 = (r2[0], r2[1], r2[2] - r2[0], r2[3] - r2[1])
+            if tr.mixed_ids:
+                r3 = tr.get_state()
+                r3 = (r3[0], r3[1], r3[2] - r3[0], r3[3] - r3[1])
+                r3 = model.rect_inflate2(r3, max(r3[2], r3[3]), max(r3[2], r3[3]))
+                isect = model.rect_intersection(r2, r3)
+                if isect:
+                    new_id = tr.mixed_ids[0]
+                    del tr.mixed_ids[0]
+                    break
         if not self.use_dlib:
           trk = KalmanBoxTracker(dets[i,:])
         else:
           #trk = CorrelationTracker(dets[i,:],img)
-          trk = KCFTracker(dets[i,:],img)
+          trk = KCFTracker(dets[i,:], img, new_id)
           #trk = KalmanBoxTracker(dets[i,:])
         self.trackers.append(trk)
 
@@ -83,17 +96,36 @@ class Sort:
     for trk in reversed(self.trackers):
         if dets == []:
           trk.update([],img)
-        d = trk.get_state()
-        #if((trk.time_since_update < 1) and (trk.hit_streak >= self.min_hits or self.frame_count <= self.min_hits)):
-        ret.append(list(d) + [trk.id+1, trk.points]) # +1 as MOT benchmark requires positive
         i -= 1
         #remove dead tracklet
         if trk.lost:
             ma = self.max_age
         else:
-            ma = self.max_age * 4
+            ma = self.max_age
         if(trk.time_since_update > ma):
           self.trackers.pop(i)
-    if(len(ret)>0):
-      return ret
-    return []
+
+    i = len(self.trackers)
+    for trk1 in reversed(self.trackers):
+        i -= 1
+        r1 = trk1.get_state()
+        r1 = (r1[0], r1[1], r1[2] - r1[0], r1[3] - r1[1])
+        for trk2 in self.trackers:
+            if trk1 == trk2:
+                continue
+            r2 = trk2.get_state()
+            r2 = (r2[0], r2[1], r2[2] - r2[0], r2[3] - r2[1])
+            isect = model.rect_intersection(r1, r2)
+            if isect:
+                area_factor = (isect[2] * isect[3]) / min(r1[2] * r1[3], r2[2] * r2[3])
+                if area_factor > 0.5:
+                    trk2.mixed_ids += trk1.mixed_ids
+                    trk2.mixed_ids.append(trk1.id)
+                    self.trackers.pop(i)
+                    break
+    ret = []
+    for trk in reversed(self.trackers):
+        d = trk.get_state()
+        ret.append(list(d) + [trk.id, trk.points, trk.mixed_ids])
+
+    return ret

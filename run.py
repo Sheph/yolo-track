@@ -21,7 +21,7 @@ vc = VideoCamera(416, 416)
 
 out_wr = None
 
-is_fisheye = False
+is_fisheye = True
 
 def get_random_color(pastel_factor = 0.5):
     return [(x+pastel_factor)/(1.0+pastel_factor) for x in [random.uniform(0,1.0) for i in [1,2,3]]]
@@ -171,17 +171,18 @@ def test_frame(frame):
                 #frame_r = frame_r / 255.0
                 #frame_r = np.expand_dims(frame_r, 0)
                 netout = net.predict(preprocess_input(f[0], model.IMAGE_H, model.IMAGE_W))
-                ra.append((model.decode_netout(netout, 0.8, 0.4), f[0], f[1], f[2]))
+                ra.append((model.decode_netout(netout, 0.9, 0.4), f[0], f[1], f[2]))
 
             rects = merge_rects(ra, ff)
             last_rects = rects
         else:
             netout = net.predict(preprocess_input(frame, model.IMAGE_H, model.IMAGE_W))
-            rects = last_rects = model.decode_netout(netout, 0.8, 0.4)
+            rects = model.decode_netout(netout, 0.9, 0.4)
+            last_rects = rects
     else:
         rects = []
 
-    frame = cv2.resize(frame, (int(240 * aspect), 240), interpolation = cv2.INTER_AREA)
+    frame = cv2.resize(frame, (int(340 * aspect), 340), interpolation = cv2.INTER_AREA)
 
     off_x = 0
     off_y = 0
@@ -207,6 +208,7 @@ def test_frame(frame):
     trackers = tracker.update(np.array(detections) if detections else [], frame)
 
     for r in last_rects:
+        continue
         xmin  = int((r[0] - r[2]/2) * fix_w) - off_x
         xmax  = int((r[0] + r[2]/2) * fix_w) - off_x
         ymin  = int((r[1] - r[3]/2) * fix_h) - off_y
@@ -225,11 +227,20 @@ def test_frame(frame):
         for pt in d[5]:
             cv2.circle(frame, (int(pt[0]), int(pt[1])), 1, (255, 255, 0), 1)
         cv2.rectangle(frame, (int(d[0]),int(d[1])), (int(d[2]),int(d[3])), (0,255,0), 3)
+        str1 = str(int(d[4]))
+        if d[6]:
+            str1 += "("
+        for ii in range(len(d[6])):
+            if ii != 0:
+                str1 += ","
+            str1 += str(d[6][ii])
+        if d[6]:
+            str1 += ")"
         cv2.putText(frame,
-                    str(int(d[4])),
+                    str1,
                     (int(d[0]), int(d[1]) - 13),
                     cv2.FONT_HERSHEY_SIMPLEX,
-                    1e-3 * frame.shape[0],
+                    1e-3 * frame.shape[0] * 2,
                     (0,255,0), 2)
 
     cv2.imshow('frame', frame)
@@ -271,4 +282,4 @@ if __name__ == "__main__":
 
     tracker = Sort(use_dlib=True)
 
-    test_vid("2.avi")
+    test_vid("8.avi")

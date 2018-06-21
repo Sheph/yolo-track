@@ -202,4 +202,10 @@ def decode_netout(yolos, obj_threshold, nms_threshold):
 
     boxes = do_nms(boxes, nms_threshold, obj_threshold)
 
-    return boxes
+    boxes2 = []
+
+    for b in boxes:
+        if b[2] >= 0.05 and b[3] >= 0.05 and b[2] <= 0.5 and b[3] <= 0.8:
+            boxes2.append(b)
+
+    return boxes2

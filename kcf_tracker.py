@@ -7,15 +7,22 @@ import numpy as np
 import model
 from kalman_tracker import KalmanBoxTracker
 
+kcf_box_factor = 0.0
+
+
+nnn = 0
+
 '''Appearance Model'''
 class KCFTracker:
 
+
+
   count = 0
-  def __init__(self,bbox,img):
+  def __init__(self,bbox,img,new_id):
     #self.kalman_tracker = KalmanBoxTracker(bbox)
     self.tracker = cv2.TrackerKCF_create()
     self.last_pos = (int(bbox[0]),int(bbox[1]),int(bbox[2] - bbox[0]),int(bbox[3] - bbox[1]))
-    r = model.rect_inflate2(self.last_pos, -self.last_pos[2] / 4, -self.last_pos[3] / 4);
+    r = model.rect_inflate2(self.last_pos, -self.last_pos[2] * kcf_box_factor**2, -self.last_pos[3] * kcf_box_factor**2);
     self.tracker.init(img, r)
     self.tracker.update(img)
     self.confidence = 0. # measures how confident the tracker is! (a.k.a. correlation score)
@@ -24,20 +31,24 @@ class KCFTracker:
     self.lp = [0, 0, 0, 0]
     self.tot_dist = [0.0, 0.0, 0.0, 0.0]
     self.bboxes = [0, 0, 0, 0]
-    for i in range(4):
+    for i in range(nnn):
         r = model.rect_4patch(self.last_pos, i)
         self.trackers[i].init(img, r)
         self.lp[i] = (r[0] + r[2] / 2, r[1] + r[3] / 2)
         self.bboxes[i] = r
 
     self.time_since_update = 0
-    self.id = KCFTracker.count
-    KCFTracker.count += 1
+    if new_id:
+        self.id = new_id
+    else:
+        self.id = KCFTracker.count
+        KCFTracker.count += 1
     self.hits = 0
     self.hit_streak = 0
     self.age = 0
     self.lost = False
     self.points = []
+    self.mixed_ids = []
 
   def predict(self,img):
     ok, bbox = self.tracker.update(img)
@@ -45,8 +56,11 @@ class KCFTracker:
     if ok:
         self.lost = False
         self.last_pos = (int(bbox[0]),int(bbox[1]),int(bbox[2]),int(bbox[3]))
-        self.last_pos = model.rect_inflate2(self.last_pos, self.last_pos[2] / 2, self.last_pos[3] / 2)
+        self.last_pos = model.rect_inflate2(self.last_pos, self.last_pos[2] * kcf_box_factor, self.last_pos[3] * kcf_box_factor)
         #self.kalman_tracker.update((int(bbox[0]),int(bbox[1]),int(bbox[2] + bbox[0]),int(bbox[3] + bbox[1])), img)
+        self.points.append((int(bbox[0] + bbox[2] / 2), int(bbox[1] + bbox[3] / 2)))
+        if len(self.points) > 100:
+            del self.points[0]
     else:
         self.lost = True
         #self.last_pos = (int(kbbox[0]),int(kbbox[1]),int(kbbox[2] - kbbox[0]),int(kbbox[3] - kbbox[1]))
@@ -55,7 +69,7 @@ class KCFTracker:
         #self.tracker.update(img)
 
     frame = img.copy()
-    for i in range(4):
+    for i in range(nnn):
         ok, bbox = self.trackers[i].update(img)
         if ok:
             self.bboxes[i] = bbox
@@ -69,7 +83,7 @@ class KCFTracker:
 
     aaa = False
 
-    for i in range(4):
+    for i in range(nnn):
         cx = 0.0
         cy = 0.0
         rct = None
@@ -87,7 +101,7 @@ class KCFTracker:
         rct_good = (cx - rct_good_w / 2, cy - rct_good_h / 2, rct_good_w, rct_good_h)
         factor = (rct[2] * rct[3]) / (rct_good[2] * rct_good[3])
         if (factor <= 1.25):
-            self.last_pos = rct_good
+            #self.last_pos = rct_good
             self.points.append((cx, cy))
             if len(self.points) > 100:
                 del self.points[0]
@@ -110,7 +124,7 @@ class KCFTracker:
         #del idx[0]
         #del idx[0]
 
-    cv2.imshow('frame2', frame)
+    #cv2.imshow('frame2', frame)
     if aaa:
         cv2.waitKey()
 
@@ -132,10 +146,10 @@ class KCFTracker:
     if bbox != []:
       self.tracker = cv2.TrackerKCF_create()
       self.last_pos = (int(bbox[0]),int(bbox[1]),int(bbox[2] - bbox[0]),int(bbox[3] - bbox[1]))
-      r = model.rect_inflate2(self.last_pos, -self.last_pos[2] / 4, -self.last_pos[3] / 4);
+      r = model.rect_inflate2(self.last_pos, -self.last_pos[2] * kcf_box_factor**2, -self.last_pos[3] * kcf_box_factor**2);
       self.tracker.init(img, r)
       self.tracker.update(img)
-      for i in range(4):
+      for i in range(nnn):
         self.trackers[i] = cv2.TrackerKCF_create()
         r = model.rect_4patch(self.last_pos, i)
         self.trackers[i].init(img, r)
