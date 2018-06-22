@@ -26,6 +26,8 @@ in_file = "2.avi"
 is_fisheye = False
 out_file = "output.avi" # video file to write
 yolo_shot_interval = 17 # shoot yolo each 17 frames (i.e. ~2fps with 25fps video)
+tracker_max_age = int(25 * 3/2) # number of frames to live without yolo detections
+tracker_mix_threshold = 0.5 # box intersection level at which we'll mix trackers
 show_yolo_detections = False # show yolo detector shots
 show_fisheye_decomp = False # show fisheye decomposition as neural net sees it
 use_4patch = False  # 4patch uses 4 intersecting trackers per object, it's a bit better, but slower,
@@ -261,6 +263,6 @@ if __name__ == "__main__":
 
     net = load_model('yolo3_model.h5')
 
-    tracker = Sort(use_4patch, stop_on_4patch_break)
+    tracker = Sort(use_4patch, stop_on_4patch_break, tracker_max_age, tracker_mix_threshold)
 
     test_vid(in_file)

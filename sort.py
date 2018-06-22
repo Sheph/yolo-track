@@ -9,7 +9,7 @@ from data_association import associate_detections_to_trackers
 import model
 
 class Sort:
-    def __init__(self, use_4patch, stop_on_4patch_break, max_age = 25 * 3/2, mix_threshold = 0.5):
+    def __init__(self, use_4patch, stop_on_4patch_break, max_age, mix_threshold):
         """
         Sets key parameters for SORT
         """
