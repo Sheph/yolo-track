@@ -20,7 +20,13 @@ vc = VideoCamera(416, 416)
 out_wr = None
 
 # YOU CAN MODIFY THESE
+in_file = "8.avi"
 is_fisheye = True
+out_file = "output.avi"
+show_yolo_detections = False
+show_fisheye_decomp = False
+use_4patch = True
+stop_on_4patch_break = False
 # END
 
 def get_random_color(pastel_factor = 0.5):
@@ -56,7 +62,7 @@ def preprocess_input(image, net_h, net_w):
 
     return new_image
 
-def merge_rects(ra, orig_frame):
+def merge_fisheye_rects(ra):
     ii = 0
     final_rects = []
     for rr in ra:
@@ -114,8 +120,6 @@ def merge_rects(ra, orig_frame):
             if ((tx2 - tx1) / fix_w > 0.5) or ((ty2 - ty1) / fix_h > 0.5):
                 continue
 
-            cv2.rectangle(orig_frame, (tx1,ty1), (tx2,ty2), (255,0,0), 3)
-
             final_rects.append(((tx1 + tx2) / 2 / fix_w, (ty1 + ty2) / 2 / fix_h, (tx2 - tx1) / fix_w, (ty2 - ty1) / fix_h, 1, [1]))
     return final_rects
 
@@ -126,42 +130,32 @@ def test_frame(frame):
     global out_wr
     global color_table
 
-    keep_aspect = False
-
     aspect = float(frame.shape[1]) / frame.shape[0]
 
-    if keep_aspect:
-        frame_r = model.resize_fit(frame, (model.IMAGE_W, model.IMAGE_H), cv2.INTER_LANCZOS4)
-    else:
-        frame_r = cv2.resize(frame, (model.IMAGE_W, model.IMAGE_H))
-
-    #cv2.imshow('frame_r', frame_r)
+    frame_r = cv2.resize(frame, (model.IMAGE_W, model.IMAGE_H))
 
     f_idx += 1
 
     if f_idx > 17:
         f_idx = 0
         if is_fisheye:
-            ff = frame_r
             fs = [0, 0, 0, 0]
             fs[0] = vc.get_frame(frame_r, 0)
             fs[1] = vc.get_frame(frame_r, 1)
             fs[2] = vc.get_frame(frame_r, 2)
             fs[3] = vc.get_frame(frame_r, 3)
-            #cv2.imshow('f1', fs[0][0])
-            #cv2.imshow('f2', fs[1][0])
-            #cv2.imshow('f3', fs[2][0])
-            #cv2.imshow('f4', fs[3][0])
+            if show_fisheye_decomp:
+                cv2.imshow('f1', fs[0][0])
+                cv2.imshow('f2', fs[1][0])
+                cv2.imshow('f3', fs[2][0])
+                cv2.imshow('f4', fs[3][0])
 
             ra = []
             for f in fs:
-                #frame_r = f[0]
-                #frame_r = frame_r / 255.0
-                #frame_r = np.expand_dims(frame_r, 0)
                 netout = net.predict(preprocess_input(f[0], model.IMAGE_H, model.IMAGE_W))
                 ra.append((model.decode_netout(netout, 0.9, 0.4), f[0], f[1], f[2]))
 
-            rects = merge_rects(ra, ff)
+            rects = merge_fisheye_rects(ra)
             last_rects = rects
         else:
             netout = net.predict(preprocess_input(frame, model.IMAGE_H, model.IMAGE_W))
@@ -177,14 +171,6 @@ def test_frame(frame):
     fix_w = frame.shape[1]
     fix_h = frame.shape[0]
 
-    if keep_aspect:
-        tmp1 = max(frame.shape[1], frame.shape[0])
-        rf = model.aspect_fit((tmp1, tmp1), (frame.shape[1], frame.shape[0]))
-        off_x = rf[0]
-        off_y = rf[1]
-        fix_w = tmp1
-        fix_h = tmp1
-
     detections = []
     for r in rects:
         xmin  = int((r[0] - r[2]/2) * fix_w) - off_x
@@ -193,23 +179,24 @@ def test_frame(frame):
         ymax  = int((r[1] + r[3]/2) * fix_h) - off_y
         detections.append([xmin, ymin, xmax, ymax, model.bbox_score(r)])
 
-    trackers = tracker.update(np.array(detections) if detections else [], frame)
+    objs = tracker.update(np.array(detections) if detections else [], frame)
 
     for r in last_rects:
-        continue
+        if not show_yolo_detections:
+            continue
         xmin  = int((r[0] - r[2]/2) * fix_w) - off_x
         xmax  = int((r[0] + r[2]/2) * fix_w) - off_x
         ymin  = int((r[1] - r[3]/2) * fix_h) - off_y
         ymax  = int((r[1] + r[3]/2) * fix_h) - off_y
         cv2.rectangle(frame, (xmin,ymin), (xmax,ymax), (255,0,0), 3)
         cv2.putText(frame,
-                    str(r[4]),
-                    (xmin, ymin - 13),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1e-3 * frame.shape[0],
-                    (255,0,0), 2)
+            str(r[4]),
+            (xmin, ymin - 13),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1e-3 * frame.shape[0],
+            (255,0,0), 2)
 
-    for d in trackers:
+    for d in objs:
         pts = np.array(d[5])
         cv2.polylines(frame, np.int32([pts]), 0, color_table[d[4] % len(color_table)], 2)
         for pt in d[5]:
@@ -225,16 +212,16 @@ def test_frame(frame):
         if d[6]:
             str1 += ")"
         cv2.putText(frame,
-                    str1,
-                    (int(d[0]), int(d[1]) - 13),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1e-3 * frame.shape[0] * 2,
-                    (0,255,0), 2)
+            str1,
+            (int(d[0]), int(d[1]) - 13),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1e-3 * frame.shape[0] * 2,
+            (0,255,0), 2)
 
     cv2.imshow('frame', frame)
     if out_wr == None:
         fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        out_wr = cv2.VideoWriter('output.avi', fourcc, 25.0, (frame.shape[1], frame.shape[0]))
+        out_wr = cv2.VideoWriter(out_file, fourcc, 25.0, (frame.shape[1], frame.shape[0]))
     out_wr.write(frame)
     k = cv2.waitKey(1) & 0xff
     if k == 32:
@@ -265,6 +252,6 @@ if __name__ == "__main__":
 
     net = load_model('yolo3_model.h5')
 
-    tracker = Sort()
+    tracker = Sort(use_4patch, stop_on_4patch_break)
 
-    test_vid("8.avi")
+    test_vid(in_file)

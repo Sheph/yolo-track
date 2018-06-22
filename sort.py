@@ -9,10 +9,12 @@ from data_association import associate_detections_to_trackers
 import model
 
 class Sort:
-    def __init__(self, max_age=25*3/2):
+    def __init__(self, use_4patch, stop_on_4patch_break, max_age = 25 * 3/2):
         """
         Sets key parameters for SORT
         """
+        self.use_4patch = use_4patch
+        self.stop_on_4patch_break = stop_on_4patch_break
         self.max_age = max_age
         self.trackers = []
 
@@ -70,7 +72,7 @@ class Sort:
                             new_id = tr.mixed_ids[0]
                             del tr.mixed_ids[0]
                             break
-                trk = KCFTracker(dets[i,:], img, new_id)
+                trk = KCFTracker(dets[i,:], img, new_id, self.use_4patch, self.stop_on_4patch_break)
                 self.trackers.append(trk)
 
         i = len(self.trackers)
