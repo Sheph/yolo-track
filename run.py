@@ -264,7 +264,7 @@ def test_frame(frame):
                     people_dict[mid] += 1
                 if people_dict[mid] == roi_presence_time:
                     people_count += 1
-                to_keep[tr.id] = 1
+                to_keep[mid] = 1
         to_del = []
         for k, _ in people_dict.items():
             if k not in to_keep:
