@@ -59,7 +59,7 @@ class KCFTracker:
 
             break_detected = False
 
-            for i in range(self.num_patches):
+            for i in range(2):
                 cx = 0.0
                 cy = 0.0
                 rct = None
@@ -93,6 +93,10 @@ class KCFTracker:
                         cv2.rectangle(frame, (int(rct_good[0]),int(rct_good[1])), (int(rct_good[0] + rct_good[2]),int(rct_good[1] + rct_good[3])), (0,0,255), 2)
                         break_detected = True
                     break
+                if i == 1:
+                    break
+                del idx[0]
+                del idx[0]
                 del idx[0]
 
             cv2.imshow('frame_4patch', frame)

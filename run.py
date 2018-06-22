@@ -14,20 +14,29 @@ from sort import Sort
 from fisheye_camera import VideoCamera
 from keras.models import load_model
 
+# Things to do before running this:
+# 1. kcf tracker doesn't expose params to python, you'll need to patch C++ code,
+#    open opencv_contrib/modules/tracking/src/trackerKCF.cpp, find
+#    TrackerKCF::Params::Params() and replace 0.5f with 0.1f:
+#    detect_thresh = 0.1f;
+# 2. get yolo3_model.h5 and put it in this dir
+
+# YOU CAN MODIFY THESE
+in_file = "2.avi"
+is_fisheye = False
+out_file = "output.avi" # video file to write
+yolo_shot_interval = 17 # shoot yolo each 17 frames (i.e. ~2fps with 25fps video)
+show_yolo_detections = False # show yolo detector shots
+show_fisheye_decomp = False # show fisheye decomposition as neural net sees it
+use_4patch = False  # 4patch uses 4 intersecting trackers per object, it's a bit better, but slower,
+                    # I dunno if we should use it, needs performance/quality testing...
+stop_on_4patch_break = False # whenever 4patch breaks and fixes up we'll stop, press space to continue, mostly for debugging
+# END
+
 f_idx = 0
 last_rects = []
 vc = VideoCamera(416, 416)
 out_wr = None
-
-# YOU CAN MODIFY THESE
-in_file = "8.avi"
-is_fisheye = True
-out_file = "output.avi"
-show_yolo_detections = False
-show_fisheye_decomp = False
-use_4patch = True
-stop_on_4patch_break = False
-# END
 
 def get_random_color(pastel_factor = 0.5):
     return [(x+pastel_factor)/(1.0+pastel_factor) for x in [random.uniform(0,1.0) for i in [1,2,3]]]
@@ -136,7 +145,7 @@ def test_frame(frame):
 
     f_idx += 1
 
-    if f_idx > 17:
+    if f_idx > yolo_shot_interval:
         f_idx = 0
         if is_fisheye:
             fs = [0, 0, 0, 0]

@@ -9,13 +9,14 @@ from data_association import associate_detections_to_trackers
 import model
 
 class Sort:
-    def __init__(self, use_4patch, stop_on_4patch_break, max_age = 25 * 3/2):
+    def __init__(self, use_4patch, stop_on_4patch_break, max_age = 25 * 3/2, mix_threshold = 0.5):
         """
         Sets key parameters for SORT
         """
         self.use_4patch = use_4patch
         self.stop_on_4patch_break = stop_on_4patch_break
         self.max_age = max_age
+        self.mix_threshold = mix_threshold
         self.trackers = []
 
     def update(self,dets,img=None):
@@ -53,7 +54,7 @@ class Sort:
                     isect = model.rect_intersection(r1, r2)
                     if isect:
                         area_factor = (isect[2] * isect[3]) / min(r1[2] * r1[3], r2[2] * r2[3])
-                        if area_factor > 0.5:
+                        if area_factor > self.mix_threshold:
                             tr.time_since_update = 0
                             skip = True
                             break
@@ -97,7 +98,7 @@ class Sort:
                 isect = model.rect_intersection(r1, r2)
                 if isect:
                     area_factor = (isect[2] * isect[3]) / min(r1[2] * r1[3], r2[2] * r2[3])
-                    if area_factor > 0.5:
+                    if area_factor > self.mix_threshold:
                         trk2.mixed_ids += trk1.mixed_ids
                         trk2.mixed_ids.append(trk1.id)
                         self.trackers.pop(i)
