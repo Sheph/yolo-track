@@ -9,7 +9,7 @@ from data_association import associate_detections_to_trackers
 import model
 
 class Sort:
-    def __init__(self, use_4patch, stop_on_4patch_break, max_age, mix_threshold):
+    def __init__(self, use_4patch, stop_on_4patch_break, max_age, mix_threshold, inflate_ratio, mix_life_threshold):
         """
         Sets key parameters for SORT
         """
@@ -17,6 +17,8 @@ class Sort:
         self.stop_on_4patch_break = stop_on_4patch_break
         self.max_age = max_age
         self.mix_threshold = mix_threshold
+        self.inflate_ratio = inflate_ratio
+        self.mix_life_threshold = mix_life_threshold
         self.trackers = []
 
     def update(self,dets,img=None):
@@ -35,7 +37,16 @@ class Sort:
             trk[:] = [pos[0], pos[1], pos[2], pos[3], 0]
         trks = np.ma.compress_rows(np.ma.masked_invalid(trks))
         if dets != []:
-            matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(dets,trks)
+            dets_inflated = np.copy(dets)
+            for i in range(dets_inflated.shape[0]):
+                r1 = dets_inflated[i, :]
+                r1 = (r1[0], r1[1], r1[2] - r1[0], r1[3] - r1[1])
+                r1 = model.rect_inflate2(r1, r1[2] * self.inflate_ratio, r1[3] * self.inflate_ratio)
+                dets_inflated[i][0] = r1[0]
+                dets_inflated[i][1] = r1[1]
+                dets_inflated[i][2] = r1[2] + r1[0]
+                dets_inflated[i][3] = r1[3] + r1[1]
+            matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(dets_inflated,trks)
 
             #update matched trackers with assigned detections
             for t,trk in enumerate(self.trackers):
@@ -88,10 +99,14 @@ class Sort:
         i = len(self.trackers)
         for trk1 in reversed(self.trackers):
             i -= 1
+            if trk1.life < self.mix_life_threshold:
+                continue
             r1 = trk1.get_state()
             r1 = (r1[0], r1[1], r1[2] - r1[0], r1[3] - r1[1])
             for trk2 in self.trackers:
                 if trk1 == trk2:
+                    continue
+                if trk2.life < self.mix_life_threshold:
                     continue
                 r2 = trk2.get_state()
                 r2 = (r2[0], r2[1], r2[2] - r2[0], r2[3] - r2[1])

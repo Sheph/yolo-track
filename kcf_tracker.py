@@ -27,6 +27,7 @@ class KCFTracker:
                 self.bboxes[i] = r
 
         self.time_since_update = 0
+        self.life = 0
         if new_id:
             self.id = new_id
         else:
@@ -104,6 +105,7 @@ class KCFTracker:
                 cv2.waitKey()
 
         self.time_since_update += 1
+        self.life += 1
 
         return self.get_state()
 

@@ -22,12 +22,14 @@ from keras.models import load_model
 # 2. get yolo3_model.h5 and put it in this dir
 
 # YOU CAN MODIFY THESE
-in_file = "2.avi"
-is_fisheye = False
+in_file = "5.avi"
+is_fisheye = True
 out_file = "output.avi" # video file to write
 yolo_shot_interval = 17 # shoot yolo each 17 frames (i.e. ~2fps with 25fps video)
-tracker_max_age = int(25 * 3/2) # number of frames to live without yolo detections
+tracker_max_age = int(25 * 3/2) + 2 # number of frames to live without yolo detections
 tracker_mix_threshold = 0.5 # box intersection level at which we'll mix trackers
+tracker_inflate_ratio = 0.2 # inflate detection boxes by this amount when doing detection<->tracking box matching
+tracker_mix_life_threshold = tracker_max_age + 1 # tracker must be at least this old in order to mix with others
 show_yolo_detections = False # show yolo detector shots
 show_fisheye_decomp = False # show fisheye decomposition as neural net sees it
 use_4patch = False  # 4patch uses 4 intersecting trackers per object, it's a bit better, but slower,
@@ -132,6 +134,8 @@ def merge_fisheye_rects(ra):
                 continue
 
             final_rects.append(((tx1 + tx2) / 2 / fix_w, (ty1 + ty2) / 2 / fix_h, (tx2 - tx1) / fix_w, (ty2 - ty1) / fix_h, 1, [1]))
+
+    final_rects = model.do_nms(final_rects, 0.3, 0.0)
     return final_rects
 
 def test_frame(frame):
@@ -263,6 +267,6 @@ if __name__ == "__main__":
 
     net = load_model('yolo3_model.h5')
 
-    tracker = Sort(use_4patch, stop_on_4patch_break, tracker_max_age, tracker_mix_threshold)
+    tracker = Sort(use_4patch, stop_on_4patch_break, tracker_max_age, tracker_mix_threshold, tracker_inflate_ratio, tracker_mix_life_threshold)
 
     test_vid(in_file)
