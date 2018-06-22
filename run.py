@@ -16,12 +16,12 @@ from keras.models import load_model
 
 f_idx = 0
 last_rects = []
-
 vc = VideoCamera(416, 416)
-
 out_wr = None
 
+# YOU CAN MODIFY THESE
 is_fisheye = True
+# END
 
 def get_random_color(pastel_factor = 0.5):
     return [(x+pastel_factor)/(1.0+pastel_factor) for x in [random.uniform(0,1.0) for i in [1,2,3]]]
@@ -43,16 +43,6 @@ def generate_new_color(existing_colors,pastel_factor = 0.5):
     return best_color
 
 def preprocess_input(image, net_h, net_w):
-    new_h, new_w, _ = image.shape
-
-    # determine the new size of the image
-    if (float(net_w) / new_w) < (float(net_h) / new_h):
-        new_h = (new_h * net_w) // new_w
-        new_w = net_w
-    else:
-        new_w = (new_w * net_h) // new_h
-        new_h = net_h
-
     new_w = net_w
     new_h = net_h
 
@@ -127,12 +117,10 @@ def merge_rects(ra, orig_frame):
             cv2.rectangle(orig_frame, (tx1,ty1), (tx2,ty2), (255,0,0), 3)
 
             final_rects.append(((tx1 + tx2) / 2 / fix_w, (ty1 + ty2) / 2 / fix_h, (tx2 - tx1) / fix_w, (ty2 - ty1) / fix_h, 1, [1]))
-    #cv2.imshow('ff', orig_frame)
     return final_rects
 
 def test_frame(frame):
     global net
-    global dummy_array
     global f_idx
     global last_rects
     global out_wr
@@ -267,8 +255,6 @@ def test_vid(fn):
 
 if __name__ == "__main__":
     global net
-    global dummy_array
-    global dummy_mask
     global color_table
 
     color_table = []
@@ -278,8 +264,7 @@ if __name__ == "__main__":
         color_table.append((int(c[0] * 255), int(c[1] * 255), int(c[2] * 255)))
 
     net = load_model('yolo3_model.h5')
-    dummy_array = np.zeros((1,1,1,1,model.TRUE_BOX_BUFFER,4))
 
-    tracker = Sort(use_dlib=True)
+    tracker = Sort()
 
     test_vid("8.avi")

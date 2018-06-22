@@ -14,12 +14,8 @@ import imgaug as ia
 import math
 from imgaug import augmenters as iaa
 
-LABELS = ['person']
-
 IMAGE_H, IMAGE_W = 416, 416
-ANCHORS          = [10,37, 17,71, 28,104, 28,50, 42,79, 45,148, 70,92, 77,181, 193,310]
-TRUE_BOX_BUFFER  = 500
-ALPHA = 0.1
+ANCHORS = [10,37, 17,71, 28,104, 28,50, 42,79, 45,148, 70,92, 77,181, 193,310]
 
 def rect_intersection(a, b):
     x = max(a[0], b[0])

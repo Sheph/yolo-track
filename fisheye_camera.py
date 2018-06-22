@@ -17,11 +17,11 @@ def trans2mat(trans):
 	return np.matrix([[0,0,trans[0]],[0,0,trans[1]],[0,0,0]])
 
 def fill_mapping(img, mapx, mapy, color_ind=2):
-    indx = np.floor(mapx).astype(int)
-    indy = np.floor(mapy).astype(int)
-    indx[indx >= img.shape[1]] = 0
-    indy[indy >= img.shape[0]] = 0
-    img[indy,indx,color_ind] = 255
+	indx = np.floor(mapx).astype(int)
+	indy = np.floor(mapy).astype(int)
+	indx[indx >= img.shape[1]] = 0
+	indy[indy >= img.shape[0]] = 0
+	img[indy,indx,color_ind] = 255
 
 
 class VideoCamera(object):
