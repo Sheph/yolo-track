@@ -22,10 +22,11 @@ from keras.models import load_model
 # 2. get yolo3_model.h5 and put it in this dir
 
 # YOU CAN MODIFY THESE
-in_file = "5.avi"
+in_file = "8.avi"
 is_fisheye = True
 out_file = "output.avi" # video file to write
-yolo_shot_interval = 17 # shoot yolo each 17 frames (i.e. ~2fps with 25fps video)
+roi_presence_time = 25 * 5 # time to spend inside roi to get counted
+yolo_shot_interval = 17 # shoot yolo each 17 frames (i.e. ~1.5fps with 25fps video)
 tracker_max_age = int(25 * 3/2) + 2 # number of frames to live without yolo detections
 tracker_mix_threshold = 0.5 # box intersection level at which we'll mix trackers
 tracker_inflate_ratio = 0.2 # inflate detection boxes by this amount when doing detection<->tracking box matching
@@ -35,12 +36,16 @@ show_fisheye_decomp = False # show fisheye decomposition as neural net sees it
 use_4patch = False  # 4patch uses 4 intersecting trackers per object, it's a bit better, but slower,
                     # I dunno if we should use it, needs performance/quality testing...
 stop_on_4patch_break = False # whenever 4patch breaks and fixes up we'll stop, press space to continue, mostly for debugging
+# press 'r' to reset roi, click to create new roi
+roi = [[216, 108], [291, 99], [375, 109], [384, 180], [383, 227], [359, 300], [303, 297], [239, 290], [218, 223], [212, 169]]
 # END
 
 f_idx = 0
 last_rects = []
 vc = VideoCamera(416, 416)
 out_wr = None
+people_count = 0
+people_dict = {}
 
 def get_random_color(pastel_factor = 0.5):
     return [(x+pastel_factor)/(1.0+pastel_factor) for x in [random.uniform(0,1.0) for i in [1,2,3]]]
@@ -144,6 +149,9 @@ def test_frame(frame):
     global last_rects
     global out_wr
     global color_table
+    global roi
+    global people_dict
+    global people_count
 
     aspect = float(frame.shape[1]) / frame.shape[0]
 
@@ -233,6 +241,44 @@ def test_frame(frame):
             1e-3 * frame.shape[0] * 2,
             (0,255,0), 2)
 
+    pts = np.array(roi, np.int32)
+    pts = pts.reshape((-1,1,2))
+    cv2.polylines(frame, [pts], True, (0,255,255))
+    if roi:
+        to_keep = {}
+        for tr in tracker.trackers:
+            pt = tr.get_state()
+            if cv2.pointPolygonTest(pts, (int((pt[0] + pt[2]) / 2), int((pt[1] + pt[3]) / 2)), False) < 0:
+                continue
+            if tr.id not in people_dict:
+                people_dict[tr.id] = 1
+            else:
+                people_dict[tr.id] += 1
+            if people_dict[tr.id] == roi_presence_time:
+                people_count += 1
+            to_keep[tr.id] = 1
+            for mid in tr.mixed_ids:
+                if mid not in people_dict:
+                    people_dict[mid] = 1
+                else:
+                    people_dict[mid] += 1
+                if people_dict[mid] == roi_presence_time:
+                    people_count += 1
+                to_keep[tr.id] = 1
+        to_del = []
+        for k, _ in people_dict.items():
+            if k not in to_keep:
+                to_del.append(k)
+        for k in to_del:
+            del people_dict[k]
+
+        cv2.putText(frame,
+            str(people_count) + "(" + str(len(people_dict)) + ")",
+            (int(roi[0][0]), int(roi[0][1]) - 13),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1e-3 * frame.shape[0] * 2,
+            (255,255,0), 2)
+
     cv2.imshow('frame', frame)
     if out_wr == None:
         fourcc = cv2.VideoWriter_fourcc(*'XVID')
@@ -243,6 +289,8 @@ def test_frame(frame):
         k = cv2.waitKey() & 0xff
     if k == 27:
         exit()
+    if k == ord('r'):
+        roi = []
 
 def test_vid(fn):
     cap = cv2.VideoCapture(fn)
@@ -254,6 +302,12 @@ def test_vid(fn):
         test_frame(frame)
 
     cap.release()
+
+def mouse_cb(event, x, y, flags, param):
+    global roi
+    if event == cv2.EVENT_LBUTTONDOWN:
+        roi.append([x, y])
+        print(roi)
 
 if __name__ == "__main__":
     global net
@@ -268,5 +322,8 @@ if __name__ == "__main__":
     net = load_model('yolo3_model.h5')
 
     tracker = Sort(use_4patch, stop_on_4patch_break, tracker_max_age, tracker_mix_threshold, tracker_inflate_ratio, tracker_mix_life_threshold)
+
+    cv2.namedWindow('frame')
+    cv2.setMouseCallback('frame', mouse_cb)
 
     test_vid(in_file)
